@@ -1,5 +1,4 @@
-
-
+import 'dotenv/config'
 /**
  * This is the main funciton in this app.
  * Assume this function is the main entry point of the application
