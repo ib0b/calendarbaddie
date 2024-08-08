@@ -1,6 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require("fs");
-const promptTemplate = require('./prompt');
+const createPrompt = require('./prompt');
 
 // Access your API key as an environment variable (see "Set up your API key" above)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -16,7 +16,8 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 const emailsToTasks = async (emails)=>{
 
 
-  const prompt = createPrompt(emails)
+  const prompt = createPrompt(JSON.stringify(emails))
+
   const result = await model.generateContent(prompt);
   const response = await result.response;
   const text = response.text();
@@ -25,14 +26,6 @@ const emailsToTasks = async (emails)=>{
   return tasks
 }
 
-/**
- * Append JSON data to prompt
- * @param {*} emails 
- * @returns 
- */
-function createPrompt(emails){
-  const prompt = promptTemplate + JSON.stringify(emails)
-  return prompt
-}
+
 module.exports = {emailsToTasks }
 
