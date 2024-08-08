@@ -1,6 +1,5 @@
 ## Calendar Tasks
 
-- [ ] Service Account for Google Workspace
-  - [ ] Resolved through auth.js file
-- [ ] Find free time in the calendar
-- [ ]  
+- [x] Service Account for Google Workspace
+  - [x] Resolved through auth.js file
+- [x] Find free time in the calendar

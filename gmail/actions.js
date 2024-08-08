@@ -1,6 +1,7 @@
 const {google} = require('googleapis');
 const simpleParser = require('mailparser').simpleParser;
 const authorize = require('./auth')
+const schedule = require('../calendar/calendar')
 
 /**
  * Lists the labels in the user's account.
@@ -51,9 +52,15 @@ const getEmails = async () => {
     })
 }
 
+
+const executeSchedule = async (tasks = []) => {
+    await schedule(authorize, /** incoming tasks */ incomingTasks = tasks)
+}
+
 module.exports = {
     listLabels,
-    getEmails
+    getEmails,
+    executeSchedule
 }
 
 

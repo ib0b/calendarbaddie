@@ -1,84 +1,20 @@
-
-const fs2 = require('fs').promises;
-const path = require('path');
-const process = require('process');
-const {authenticate} = require('@google-cloud/local-auth');
 const {google} = require('googleapis');
-// import credentials from './credentials.json';
+const authorize = require('../gmail/auth')
+const moment = require('moment');
 
-
-// If modifying these scopes, delete token.json.
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
-// The file token.json stores the user's access and refresh tokens, and is
-// created automatically when the authorization flow completes for the first
-// time.
-const TOKEN_PATH = path.join(process.cwd(), 'token.json');
-const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
-
-/**
- * Reads previously authorized credentials from the save file.
- *
- * @return {Promise<OAuth2Client|null>}
- */
-async function loadSavedCredentialsIfExist() {
-  try {
-    const content = await fs2.readFile(TOKEN_PATH);
-    const credentials = JSON.parse(content);
-    return google.auth.fromAPIKey(credentials);
-  } catch (err) {
-    return null;
-  }
-}
-
-/**
- * Serializes credentials to a file compatible with GoogleAuth.fromJSON.
- *
- * @param {OAuth2Client} client
- * @return {Promise<void>}
- */
-async function saveCredentials(client) {
-  const content = await fs2.readFile(CREDENTIALS_PATH);
-  const keys = JSON.parse(content);
-  const key = keys.installed || keys.web;
-  const payload = JSON.stringify({
-    type: 'authorized_user',
-    client_id: key.client_id,
-    client_secret: key.client_secret,
-    refresh_token: client.credentials.refresh_token,
-  });
-  await fs2.writeFile(TOKEN_PATH, payload);
-}
-
-/**
- * Load or request or authorization to call APIs.
- *
- */
-async function authorize() {
-  let client = await loadSavedCredentialsIfExist();
-  if (client) {
-    return client;
-  }
-  client = await authenticate({
-    scopes: SCOPES,
-    keyfilePath: CREDENTIALS_PATH,
-  });
-  if (client.credentials) {
-    await saveCredentials(client);
-  }
-
-  return client;
-}
 
 /**
  * Lists the next 10 events on the user's primary calendar.
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ * @returns list of events 
  */
 async function listEvents(auth) {
   const calendar = google.calendar({version: 'v3', auth});
+  const numberOfEventsToFetch = 20;
   const res = await calendar.events.list({
     calendarId: 'primary',
     timeMin: new Date().toISOString(),
-    maxResults: 1,
+    maxResults: numberOfEventsToFetch,
     singleEvents: true,
     orderBy: 'startTime',
   });
@@ -87,40 +23,18 @@ async function listEvents(auth) {
     console.log('No upcoming events found.');
     return;
   }
-  console.log('Upcoming 1 event:');
+  console.log('Upcoming ${numberOfEventsToFetch} event:');
   events.map((event, i) => {
     const start = event.start.dateTime || event.start.date;
     const end = event.end.dateTime || event.end.date;
     console.log(`${start} - ${end} -> ${event.summary}`);
   });
+
+  return events;
 }
 
-async function createEvent(auth) {
+async function createEvent(auth, event) {
     const calendar = google.calendar({version: 'v3', auth});
-
-    var event = {
-        'summary': 'CalendarBaddie event number 2',
-        'location': 'Ongata Rongai',
-        'description': 'A chance to hear more about Google\'s developer products.',
-        'start': {
-            'dateTime': '2024-08-08T13:00:00+03:00',
-            'timeZone': 'Africa/Nairobi',
-        },
-        'end': {
-            'dateTime': '2024-08-08T14:00:00+03:00',
-            'timeZone': 'Africa/Nairobi',
-        },
-        'attendees': [
-            {'email': 'lewisochibo@gmail.com'},
-        ],
-        'reminders': {
-            'useDefault': false,
-            'overrides': [
-            {'method': 'email', 'minutes': 24 * 60},
-            {'method': 'popup', 'minutes': 10},
-            ],
-        },
-    }
 
     calendar.events.insert({auth: auth, calendarId: 'primary', requestBody: event}, function(err, event) {
         if (err) {
@@ -131,5 +45,135 @@ async function createEvent(auth) {
     });
 }
 
-// authorize().then(createEvent).catch(console.error);
-authorize().then(listEvents).catch(console.error);
+/**
+ * Find free slots on the calendar
+ */
+async function schedule(authorize, incomingTasks = [], n = 20) {
+  if(incomingTasks.length == 0) return;
+  /**
+   * Get a list of the next n events in the calendar and use them to determine where to place the next
+   * event on the calendar.
+   */
+  let existingCalendarEvents = [];
+  await authorize().then(listEvents).then(events => existingCalendarEvents.push(...events)).catch(console.error);
+
+  const formatedEvents = formatExistingEventsList(existingCalendarEvents);
+
+  /**
+   * Space out the tasks accordingly. Don't overcrowd a day with many events. Probably at most 4.
+   * Sort a task by deadline.
+   */
+  const sortedTasks = sortTasksByDeadline(incomingTasks);
+
+  const eventEntries = createCalendarEventEntries(formatedEvents, sortedTasks);
+
+  for(let newEvent of eventEntries){
+    await authorize().then((auth) => createEvent(auth, newEvent)).catch(console.error);
+  }
+}
+
+
+/**
+ * Retrieve the list of exisitng events
+ * @param {*} events
+ * @return a formatted list of existing events
+ */
+function formatExistingEventsList(events = []) {
+  return events.map(e => {
+    return {
+    "title": e["summary"],
+    "start" : e["start"]["dateTime"],
+    "end": e["end"]["dateTime"],
+  }});
+}
+
+/**
+ * 
+ * @param {*} tasks 
+ * @returns task array sorted by the deadline. Early tasks first, late tasks later.
+ * 
+ */
+function sortTasksByDeadline(tasks = []) {
+  // Separate tasks with a deadline and those without
+  let tasksWithDeadline = [], tasksWithoutDeadline = [];
+
+  for(let task of tasks){
+    if(task.deadline){
+      tasksWithDeadline.push(task);
+    } else {
+      tasksWithoutDeadline.push(task);
+    }
+  }
+
+  // Sort tasks by deadline
+  tasksWithDeadline.sort((tA, tB) => new Date(tA.deadline).getTime() - new Date(tB.deadline).getTime());
+
+  // Combine the task arrays
+  const sortedTaskList = [...tasksWithDeadline, ...tasksWithoutDeadline];
+
+  return sortedTaskList;
+}
+
+
+/**
+ * This is just a greedy heuristic of used to get slots to create events
+ * @param {*} existingEvents 
+ * @param {*} myTaskList
+ */
+function createCalendarEventEntries(existingEvents = [], myTaskList = []) {
+  let initialStartDate = moment();
+  const timeFormat = "hh:mm:ss";
+  const _eightPM = moment('20:00:00', timeFormat);
+  const tasksToCreate = [];
+
+  for(let task of myTaskList){
+    for(let existingEvent of existingEvents){
+      let startTime = moment(initialStartDate, timeFormat);
+
+      if(initialStartDate.isBetween(existingEvent.start, existingEvent.end) ||
+        initialStartDate.add(task.duration, 'hour').isBetween(existingEvent.start, existingEvent.end)){
+        initialStartDate = moment(existingEvent.end);
+      } else if(initialStartDate.isBefore(moment(existingEvents.start).add(task.duration + 1, 'hour'))){
+        break;
+      }
+    }
+
+    let endDate = initialStartDate.clone().add(task.duration, 'hour');
+
+    tasksToCreate.push({
+      'summary': task.title,
+      'start': {
+          'dateTime': initialStartDate.clone().toISOString(),
+          'timeZone': 'Africa/Nairobi',
+        },
+        'end': {
+          'dateTime': endDate.clone().toISOString(),
+          'timeZone': 'Africa/Nairobi',
+        },
+    })
+
+    initialStartDate = endDate;
+  }
+
+  return tasksToCreate
+}
+
+
+// schedule(incomingTasks=tasks)
+
+module.exports = schedule
+
+/**
+ * 
+ *     tasksToCreate.push({
+      'summary': task.title,
+      'start': {
+          'dateTime': initialStartDate,
+          'timeZone': 'Africa/Nairobi',
+        },
+        'end': {
+          'dateTime': endDate.clone(),
+          'timeZone': 'Africa/Nairobi',
+        },
+    })
+ */
