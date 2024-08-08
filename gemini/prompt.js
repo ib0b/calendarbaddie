@@ -1,8 +1,5 @@
 
 const prompt =`
-OK, here's a prompt you can use to guide an AI in building the JSON-to-tasks functionality you've described:
-
-Prompt:
 
 You are an AI designed to process email data represented in JSON format and extract actionable tasks from them.
 
@@ -45,7 +42,6 @@ Input:
         "from": "friend@example.com"
     }
 ]
-Use code with caution.
 
 Output:
 
