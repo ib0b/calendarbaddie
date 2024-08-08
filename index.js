@@ -1,4 +1,7 @@
-import 'dotenv/config'
+require('dotenv/config')
+const {getEmails} = require("./gmail/actions")
+const {emailsToTasks} = require("./gemini/gemini")
+const {executeSchedule} = require("./gmail/actions")
 /**
  * This is the main funciton in this app.
  * Assume this function is the main entry point of the application
@@ -8,10 +11,17 @@ import 'dotenv/config'
  * 3. Calendar Event Createor: Use the output to create calendar events 
  */
 const main = async ()=>{
-     //const emails = await getUserEmails()
-     //const events = await getUseEvents(emails)
-     //const {success,error} = await createCalendar events()
+    console.log('[CalendarBaddie]: has started')
+    const emails = await getEmails()
+    console.log(`[CalendarBaddie]: The emails are of length ${emails.length}. Here is one email`,emails[0])
+    const events = await emailsToTasks(emails)
+    console.log("[CalendarBaddie]: events",events)
+    //  await executeSchedule(events.slice(0,1))
+    await executeSchedule(events)
     //  if(error){
     //     console.log(error)
     //  }
+    console.log("[CalendarBaddie]: events scheduled")
 }
+
+main()
