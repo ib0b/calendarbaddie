@@ -9,7 +9,7 @@ import 'dotenv/config'
  */
 const main = async ()=>{
      //const emails = await getUserEmails()
-     //const events = await getUseEvents()
+     //const events = await getUseEvents(emails)
      //const {success,error} = await createCalendar events()
     //  if(error){
     //     console.log(error)

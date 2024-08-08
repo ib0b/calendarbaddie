@@ -8,6 +8,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // The Gemini 1.5 models are versatile and work with both text-only and multimodal prompts
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+/**
+ * converts an arry of emails to tasks using gemini
+ * @param {*} emails 
+ * @returns 
+ */
 const emailsToTasks = async (emails)=>{
 
 
@@ -16,8 +21,7 @@ const emailsToTasks = async (emails)=>{
   const response = await result.response;
   const text = response.text();
   const tasks = JSON.parse(text);
-  console.log(text);
-  console.log(tasks)
+
   return tasks
 }
 
