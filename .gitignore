@@ -129,5 +129,7 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+credentials.json
+token.json
 # Local IDE files
 .idea/
