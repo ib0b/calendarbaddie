@@ -1,4 +1,5 @@
 const {google} = require('googleapis');
+const simpleParser = require('mailparser').simpleParser;
 const authorize = require('./auth')
 
 /**
@@ -22,27 +23,37 @@ const listLabels = async () => {
     })
 };
 
-const listEmails = async () => {
-    authorize().then(async (auth) => {
+const getEmails = async () => {
+    return authorize().then(async (auth) => {
         const gmail = google.gmail({version: 'v1', auth});
-        const res = await gmail.users.messages.list({
-            userId: 'me',
-        });
+        const res = await gmail.users.messages.list({userId: 'me',});
         const messages = res.data.messages;
         if (!messages || messages.length === 0) {
             console.log('No messages found.');
             return;
         }
-        console.log('Messages:');
-        messages.forEach((message) => {
-            console.log(`- ${message.id}`);
+        const parsed = messages.map(async (message) => {
+            const { id } = message;
+            const res = await gmail.users.messages.get({
+                userId: 'me', id, format: 'RAW'
+            });
+            const { raw } = res.data;
+            return simpleParser(Buffer.from(raw, 'base64'));
         });
+        const emails = await Promise.all(parsed);
+        return emails.map((email) => {
+            return {
+                from: email.from.value[0].name,
+                subject: email.subject,
+                content: email.text
+            }
+        })
     })
 }
 
 module.exports = {
     listLabels,
-    listEmails
+    getEmails
 }
 
 
