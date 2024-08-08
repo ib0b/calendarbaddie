@@ -15,13 +15,11 @@ const main = async ()=>{
     const emails = await getEmails()
     console.log(`[CalendarBaddie]: The emails are of length ${emails.length}. Here is one email`,emails[0])
     const events = await emailsToTasks(emails)
-    console.log("[CalendarBaddie]: events",events)
+    console.log(`[CalendarBaddie]: eventsNum = ${events.length}`,events)
     //  await executeSchedule(events.slice(0,1))
     await executeSchedule(events)
-    //  if(error){
-    //     console.log(error)
-    //  }
-    console.log("[CalendarBaddie]: events scheduled")
+  
+    console.log(`[CalendarBaddie]: events scheduled ${events.length}`)
 }
 
 main()

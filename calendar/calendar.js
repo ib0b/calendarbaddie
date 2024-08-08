@@ -23,12 +23,8 @@ async function listEvents(auth) {
     console.log('No upcoming events found.');
     return;
   }
-  console.log('Upcoming ${numberOfEventsToFetch} event:');
-  events.map((event, i) => {
-    const start = event.start.dateTime || event.start.date;
-    const end = event.end.dateTime || event.end.date;
-    console.log(`${start} - ${end} -> ${event.summary}`);
-  });
+  console.log(`Upcoming ${numberOfEventsToFetch} event:`);
+ 
 
   return events;
 }
@@ -41,7 +37,7 @@ async function createEvent(auth, event) {
           console.log('There was an error contacting the Calendar service: ' + err);
           return;
         }
-        console.log('Event created: %s', event.data);
+       
     });
 }
 
